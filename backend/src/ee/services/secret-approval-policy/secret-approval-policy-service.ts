@@ -7,7 +7,6 @@ import { BadRequestError } from "@app/lib/errors";
 import { removeTrailingSlash } from "@app/lib/fn";
 import { containsGlobPatterns } from "@app/lib/picomatch";
 import { TProjectEnvDALFactory } from "@app/services/project-env/project-env-dal";
-import { TProjectMembershipDALFactory } from "@app/services/project-membership/project-membership-dal";
 
 import { TSecretApprovalPolicyApproverDALFactory } from "./secret-approval-policy-approver-dal";
 import { TSecretApprovalPolicyDALFactory } from "./secret-approval-policy-dal";
@@ -29,7 +28,6 @@ type TSecretApprovalPolicyServiceFactoryDep = {
   secretApprovalPolicyDAL: TSecretApprovalPolicyDALFactory;
   projectEnvDAL: Pick<TProjectEnvDALFactory, "findOne">;
   secretApprovalPolicyApproverDAL: TSecretApprovalPolicyApproverDALFactory;
-  projectMembershipDAL: Pick<TProjectMembershipDALFactory, "find">;
 };
 
 export type TSecretApprovalPolicyServiceFactory = ReturnType<typeof secretApprovalPolicyServiceFactory>;
@@ -38,8 +36,7 @@ export const secretApprovalPolicyServiceFactory = ({
   secretApprovalPolicyDAL,
   permissionService,
   secretApprovalPolicyApproverDAL,
-  projectEnvDAL,
-  projectMembershipDAL
+  projectEnvDAL
 }: TSecretApprovalPolicyServiceFactoryDep) => {
   const createSecretApprovalPolicy = async ({
     name,
@@ -51,7 +48,8 @@ export const secretApprovalPolicyServiceFactory = ({
     approvers,
     projectId,
     secretPath,
-    environment
+    environment,
+    enforcementLevel
   }: TCreateSapDTO) => {
     if (approvals > approvers.length)
       throw new BadRequestError({ message: "Approvals cannot be greater than approvers" });
@@ -70,26 +68,20 @@ export const secretApprovalPolicyServiceFactory = ({
     const env = await projectEnvDAL.findOne({ slug: environment, projectId });
     if (!env) throw new BadRequestError({ message: "Environment not found" });
 
-    const secretApprovers = await projectMembershipDAL.find({
-      projectId,
-      $in: { id: approvers }
-    });
-    if (secretApprovers.length !== approvers.length)
-      throw new BadRequestError({ message: "Approver not found in project" });
-
     const secretApproval = await secretApprovalPolicyDAL.transaction(async (tx) => {
       const doc = await secretApprovalPolicyDAL.create(
         {
           envId: env.id,
           approvals,
           secretPath,
-          name
+          name,
+          enforcementLevel
         },
         tx
       );
       await secretApprovalPolicyApproverDAL.insertMany(
-        secretApprovers.map(({ id }) => ({
-          approverId: id,
+        approvers.map((approverUserId) => ({
+          approverUserId,
           policyId: doc.id
         })),
         tx
@@ -108,7 +100,8 @@ export const secretApprovalPolicyServiceFactory = ({
     actorOrgId,
     actorAuthMethod,
     approvals,
-    secretPolicyId
+    secretPolicyId,
+    enforcementLevel
   }: TUpdateSapDTO) => {
     const secretApprovalPolicy = await secretApprovalPolicyDAL.findById(secretPolicyId);
     if (!secretApprovalPolicy) throw new BadRequestError({ message: "Secret approval policy not found" });
@@ -128,26 +121,16 @@ export const secretApprovalPolicyServiceFactory = ({
         {
           approvals,
           secretPath,
-          name
+          name,
+          enforcementLevel
         },
         tx
       );
       if (approvers) {
-        const secretApprovers = await projectMembershipDAL.find(
-          {
-            projectId: secretApprovalPolicy.projectId,
-            $in: { id: approvers }
-          },
-          { tx }
-        );
-        if (secretApprovers.length !== approvers.length)
-          throw new BadRequestError({ message: "Approver not found in project" });
-        if (doc.approvals > secretApprovers.length)
-          throw new BadRequestError({ message: "Approvals cannot be greater than approvers" });
         await secretApprovalPolicyApproverDAL.delete({ policyId: doc.id }, tx);
         await secretApprovalPolicyApproverDAL.insertMany(
-          secretApprovers.map(({ id }) => ({
-            approverId: id,
+          approvers.map((approverUserId) => ({
+            approverUserId,
             policyId: doc.id
           })),
           tx

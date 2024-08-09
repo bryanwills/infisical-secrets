@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 
 import { TSuperAdmin, TSuperAdminUpdate } from "@app/db/schemas";
+import { TLicenseServiceFactory } from "@app/ee/services/license/license-service";
 import { TKeyStoreFactory } from "@app/keystore/keystore";
 import { getConfig } from "@app/lib/config/env";
 import { infisicalSymmetricEncypt } from "@app/lib/crypto/encryption";
@@ -12,7 +13,7 @@ import { AuthMethod } from "../auth/auth-type";
 import { TOrgServiceFactory } from "../org/org-service";
 import { TUserDALFactory } from "../user/user-dal";
 import { TSuperAdminDALFactory } from "./super-admin-dal";
-import { LoginMethod, TAdminSignUpDTO } from "./super-admin-types";
+import { LoginMethod, TAdminGetUsersDTO, TAdminSignUpDTO } from "./super-admin-types";
 
 type TSuperAdminServiceFactoryDep = {
   serverCfgDAL: TSuperAdminDALFactory;
@@ -20,6 +21,7 @@ type TSuperAdminServiceFactoryDep = {
   authService: Pick<TAuthLoginFactory, "generateUserTokens">;
   orgService: Pick<TOrgServiceFactory, "createOrganization">;
   keyStore: Pick<TKeyStoreFactory, "getItem" | "setItemWithExpiry" | "deleteItem">;
+  licenseService: Pick<TLicenseServiceFactory, "onPremFeatures">;
 };
 
 export type TSuperAdminServiceFactory = ReturnType<typeof superAdminServiceFactory>;
@@ -36,7 +38,8 @@ export const superAdminServiceFactory = ({
   userDAL,
   authService,
   orgService,
-  keyStore
+  keyStore,
+  licenseService
 }: TSuperAdminServiceFactoryDep) => {
   const initServerCfg = async () => {
     // TODO(akhilmhdh): bad  pattern time less change this later to me itself
@@ -209,9 +212,31 @@ export const superAdminServiceFactory = ({
     return { token, user: userInfo, organization };
   };
 
+  const getUsers = ({ offset, limit, searchTerm }: TAdminGetUsersDTO) => {
+    return userDAL.getUsersByFilter({
+      limit,
+      offset,
+      searchTerm,
+      sortBy: "username"
+    });
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (!licenseService.onPremFeatures?.instanceUserManagement) {
+      throw new BadRequestError({
+        message: "Failed to delete user due to plan restriction. Upgrade to Infisical's Pro plan."
+      });
+    }
+
+    const user = await userDAL.deleteById(userId);
+    return user;
+  };
+
   return {
     initServerCfg,
     updateServerCfg,
-    adminSignUp
+    adminSignUp,
+    getUsers,
+    deleteUser
   };
 };

@@ -81,6 +81,17 @@ export type TIssueCertFromCaDTO = {
   notAfter?: string;
 } & Omit<TProjectPermission, "projectId">;
 
+export type TSignCertFromCaDTO = {
+  caId: string;
+  csr: string;
+  friendlyName?: string;
+  commonName?: string;
+  altNames: string;
+  ttl: string;
+  notBefore?: string;
+  notAfter?: string;
+} & Omit<TProjectPermission, "projectId">;
+
 export type TDNParts = {
   commonName?: string;
   organization?: string;
@@ -95,7 +106,7 @@ export type TGetCaCredentialsDTO = {
   certificateAuthorityDAL: Pick<TCertificateAuthorityDALFactory, "findById">;
   certificateAuthoritySecretDAL: Pick<TCertificateAuthoritySecretDALFactory, "findOne">;
   projectDAL: Pick<TProjectDALFactory, "findOne" | "updateById" | "transaction">;
-  kmsService: Pick<TKmsServiceFactory, "decrypt" | "generateKmsKey">;
+  kmsService: Pick<TKmsServiceFactory, "decryptWithKmsKey" | "generateKmsKey">;
 };
 
 export type TGetCaCertChainDTO = {
@@ -103,7 +114,7 @@ export type TGetCaCertChainDTO = {
   certificateAuthorityDAL: Pick<TCertificateAuthorityDALFactory, "findById">;
   certificateAuthorityCertDAL: Pick<TCertificateAuthorityCertDALFactory, "findOne">;
   projectDAL: Pick<TProjectDALFactory, "findOne" | "updateById" | "transaction">;
-  kmsService: Pick<TKmsServiceFactory, "decrypt" | "generateKmsKey">;
+  kmsService: Pick<TKmsServiceFactory, "decryptWithKmsKey" | "generateKmsKey">;
 };
 
 export type TRebuildCaCrlDTO = {
@@ -113,7 +124,7 @@ export type TRebuildCaCrlDTO = {
   certificateAuthoritySecretDAL: Pick<TCertificateAuthoritySecretDALFactory, "findOne">;
   projectDAL: Pick<TProjectDALFactory, "findOne" | "updateById" | "transaction">;
   certificateDAL: Pick<TCertificateDALFactory, "find">;
-  kmsService: Pick<TKmsServiceFactory, "generateKmsKey" | "decrypt" | "encrypt">;
+  kmsService: Pick<TKmsServiceFactory, "generateKmsKey" | "decryptWithKmsKey" | "encryptWithKmsKey">;
 };
 
 export type TRotateCaCrlTriggerDTO = {

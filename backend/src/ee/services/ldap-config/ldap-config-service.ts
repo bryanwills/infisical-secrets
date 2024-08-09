@@ -449,7 +449,8 @@ export const ldapConfigServiceFactory = ({
               userId: userAlias.userId,
               orgId,
               role: OrgMembershipRole.Member,
-              status: OrgMembershipStatus.Accepted
+              status: OrgMembershipStatus.Accepted,
+              isActive: true
             },
             tx
           );
@@ -481,7 +482,7 @@ export const ldapConfigServiceFactory = ({
 
       userAlias = await userDAL.transaction(async (tx) => {
         let newUser: TUsers | undefined;
-        if (serverCfg.trustSamlEmails) {
+        if (serverCfg.trustLdapEmails) {
           newUser = await userDAL.findOne(
             {
               email,
@@ -534,7 +535,8 @@ export const ldapConfigServiceFactory = ({
               inviteEmail: email,
               orgId,
               role: OrgMembershipRole.Member,
-              status: newUser.isAccepted ? OrgMembershipStatus.Accepted : OrgMembershipStatus.Invited // if user is fully completed, then set status to accepted, otherwise set it to invited so we can update it later
+              status: newUser.isAccepted ? OrgMembershipStatus.Accepted : OrgMembershipStatus.Invited, // if user is fully completed, then set status to accepted, otherwise set it to invited so we can update it later
+              isActive: true
             },
             tx
           );

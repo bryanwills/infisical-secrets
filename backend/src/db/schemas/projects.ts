@@ -5,6 +5,8 @@
 
 import { z } from "zod";
 
+import { zodBuffer } from "@app/lib/zod";
+
 import { TImmutableDBKeys } from "./models";
 
 export const ProjectsSchema = z.object({
@@ -19,7 +21,9 @@ export const ProjectsSchema = z.object({
   upgradeStatus: z.string().nullable().optional(),
   pitVersionLimit: z.number().default(10),
   kmsCertificateKeyId: z.string().uuid().nullable().optional(),
-  auditLogsRetentionDays: z.number().nullable().optional()
+  auditLogsRetentionDays: z.number().nullable().optional(),
+  kmsSecretManagerKeyId: z.string().uuid().nullable().optional(),
+  kmsSecretManagerEncryptedDataKey: zodBuffer.nullable().optional()
 });
 
 export type TProjects = z.infer<typeof ProjectsSchema>;

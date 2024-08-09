@@ -15,10 +15,11 @@ import { withPermission } from "@app/hoc";
 import { useDeleteIdentity } from "@app/hooks/api";
 import { usePopUp } from "@app/hooks/usePopUp";
 
-import { IdentityAuthMethodModal } from "./IdentityAuthMethodModal";
+// import { IdentityAuthMethodModal } from "./IdentityAuthMethodModal";
 import { IdentityModal } from "./IdentityModal";
 import { IdentityTable } from "./IdentityTable";
-import { IdentityUniversalAuthClientSecretModal } from "./IdentityUniversalAuthClientSecretModal";
+import { IdentityTokenAuthTokenModal } from "./IdentityTokenAuthTokenModal";
+// import { IdentityUniversalAuthClientSecretModal } from "./IdentityUniversalAuthClientSecretModal";
 
 export const IdentitySection = withPermission(
   () => {
@@ -33,7 +34,8 @@ export const IdentitySection = withPermission(
       "deleteIdentity",
       "universalAuthClientSecret",
       "deleteUniversalAuthClientSecret",
-      "upgradePlan"
+      "upgradePlan",
+      "tokenAuthToken"
     ] as const);
 
     const isMoreIdentitiesAllowed = subscription?.identityLimit
@@ -66,7 +68,7 @@ export const IdentitySection = withPermission(
     };
 
     return (
-      <div className="mb-6 rounded-lg border border-mineshaft-600 bg-mineshaft-900 p-4">
+      <div className="rounded-lg border border-mineshaft-600 bg-mineshaft-900 p-4">
         <div className="mb-4 flex justify-between">
           <p className="text-xl font-semibold text-mineshaft-100">Identities</p>
           <div className="flex w-full justify-end pr-4">
@@ -107,21 +109,18 @@ export const IdentitySection = withPermission(
           </OrgPermissionCan>
         </div>
         <IdentityTable handlePopUpOpen={handlePopUpOpen} />
-        <IdentityModal
+        <IdentityModal popUp={popUp} handlePopUpToggle={handlePopUpToggle} />
+        {/* <IdentityAuthMethodModal
           popUp={popUp}
           handlePopUpOpen={handlePopUpOpen}
           handlePopUpToggle={handlePopUpToggle}
-        />
-        <IdentityAuthMethodModal
+        /> */}
+        {/* <IdentityUniversalAuthClientSecretModal
           popUp={popUp}
           handlePopUpOpen={handlePopUpOpen}
           handlePopUpToggle={handlePopUpToggle}
-        />
-        <IdentityUniversalAuthClientSecretModal
-          popUp={popUp}
-          handlePopUpOpen={handlePopUpOpen}
-          handlePopUpToggle={handlePopUpToggle}
-        />
+        /> */}
+        <IdentityTokenAuthTokenModal popUp={popUp} handlePopUpToggle={handlePopUpToggle} />
         <DeleteActionModal
           isOpen={popUp.deleteIdentity.isOpen}
           title={`Are you sure want to delete ${

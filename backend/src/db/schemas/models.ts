@@ -53,12 +53,14 @@ export enum TableName {
   Webhook = "webhooks",
   Identity = "identities",
   IdentityAccessToken = "identity_access_tokens",
+  IdentityTokenAuth = "identity_token_auths",
   IdentityUniversalAuth = "identity_universal_auths",
   IdentityKubernetesAuth = "identity_kubernetes_auths",
   IdentityGcpAuth = "identity_gcp_auths",
   IdentityAzureAuth = "identity_azure_auths",
   IdentityUaClientSecret = "identity_ua_client_secrets",
   IdentityAwsAuth = "identity_aws_auths",
+  IdentityOidcAuth = "identity_oidc_auths",
   IdentityOrgMembership = "identity_org_memberships",
   IdentityProjectMembership = "identity_project_memberships",
   IdentityProjectMembershipRole = "identity_project_membership_role",
@@ -88,12 +90,25 @@ export enum TableName {
   TrustedIps = "trusted_ips",
   DynamicSecret = "dynamic_secrets",
   DynamicSecretLease = "dynamic_secret_leases",
+  SecretV2 = "secrets_v2",
+  SecretReferenceV2 = "secret_references_v2",
+  SecretVersionV2 = "secret_versions_v2",
+  SecretApprovalRequestSecretV2 = "secret_approval_requests_secrets_v2",
+  SecretApprovalRequestSecretTagV2 = "secret_approval_request_secret_tags_v2",
+  SnapshotSecretV2 = "secret_snapshot_secrets_v2",
   // junction tables with tags
+  SecretV2JnTag = "secret_v2_tag_junction",
   JnSecretTag = "secret_tag_junction",
   SecretVersionTag = "secret_version_tag_junction",
+  SecretVersionV2Tag = "secret_version_v2_tag_junction",
+  SecretRotationOutputV2 = "secret_rotation_output_v2",
   // KMS Service
   KmsServerRootConfig = "kms_root_config",
   KmsKey = "kms_keys",
+  ExternalKms = "external_kms",
+  InternalKms = "internal_kms",
+  InternalKmsKeyVersion = "internal_kms_key_version",
+  // @depreciated
   KmsKeyVersion = "kms_key_versions"
 }
 
@@ -151,7 +166,8 @@ export enum SecretType {
 
 export enum ProjectVersion {
   V1 = 1,
-  V2 = 2
+  V2 = 2,
+  V3 = 3
 }
 
 export enum ProjectUpgradeStatus {
@@ -161,9 +177,11 @@ export enum ProjectUpgradeStatus {
 }
 
 export enum IdentityAuthMethod {
+  TOKEN_AUTH = "token-auth",
   Univeral = "universal-auth",
   KUBERNETES_AUTH = "kubernetes-auth",
   GCP_AUTH = "gcp-auth",
   AWS_AUTH = "aws-auth",
-  AZURE_AUTH = "azure-auth"
+  AZURE_AUTH = "azure-auth",
+  OIDC_AUTH = "oidc-auth"
 }

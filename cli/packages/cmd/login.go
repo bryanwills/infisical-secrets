@@ -27,7 +27,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/go-resty/resty/v2"
 	"github.com/manifoldco/promptui"
-	"github.com/pkg/browser"
 	"github.com/posthog/posthog-go"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
@@ -84,7 +83,7 @@ func handleAzureAuthLogin(cmd *cobra.Command, infisicalClient infisicalSdk.Infis
 		return infisicalSdk.MachineIdentityCredential{}, err
 	}
 
-	return infisicalClient.Auth().AzureAuthLogin(identityId)
+	return infisicalClient.Auth().AzureAuthLogin(identityId, "")
 }
 
 func handleGcpIdTokenAuthLogin(cmd *cobra.Command, infisicalClient infisicalSdk.InfisicalClientInterface) (credential infisicalSdk.MachineIdentityCredential, e error) {
@@ -120,6 +119,21 @@ func handleAwsIamAuthLogin(cmd *cobra.Command, infisicalClient infisicalSdk.Infi
 	}
 
 	return infisicalClient.Auth().AwsIamAuthLogin(identityId)
+}
+
+func handleOidcAuthLogin(cmd *cobra.Command, infisicalClient infisicalSdk.InfisicalClientInterface) (credential infisicalSdk.MachineIdentityCredential, e error) {
+
+	identityId, err := util.GetCmdFlagOrEnv(cmd, "machine-identity-id", util.INFISICAL_MACHINE_IDENTITY_ID_NAME)
+	if err != nil {
+		return infisicalSdk.MachineIdentityCredential{}, err
+	}
+
+	jwt, err := util.GetCmdFlagOrEnv(cmd, "oidc-jwt", util.INFISICAL_OIDC_AUTH_JWT_NAME)
+	if err != nil {
+		return infisicalSdk.MachineIdentityCredential{}, err
+	}
+
+	return infisicalClient.Auth().OidcAuthLogin(identityId, jwt)
 }
 
 func formatAuthMethod(authMethod string) string {
@@ -190,6 +204,7 @@ var loginCmd = &cobra.Command{
 				if !overrideDomain {
 					domainQuery = false
 					config.INFISICAL_URL = util.AppendAPIEndpoint(config.INFISICAL_URL_MANUAL_OVERRIDE)
+					config.INFISICAL_LOGIN_URL = fmt.Sprintf("%s/login", strings.TrimSuffix(config.INFISICAL_URL, "/api"))
 				}
 
 			}
@@ -211,9 +226,9 @@ var loginCmd = &cobra.Command{
 
 			//call browser login function
 			if !interactiveLogin {
-				fmt.Println("Logging in via browser... To login via interactive mode run [infisical login -i]")
 				userCredentialsToBeStored, err = browserCliLogin()
 				if err != nil {
+					fmt.Printf("Login via browser failed. %s", err.Error())
 					//default to cli login on error
 					cliDefaultLogin(&userCredentialsToBeStored)
 				}
@@ -257,6 +272,7 @@ var loginCmd = &cobra.Command{
 				util.AuthStrategy.GCP_ID_TOKEN_AUTH: handleGcpIdTokenAuthLogin,
 				util.AuthStrategy.GCP_IAM_AUTH:      handleGcpIamAuthLogin,
 				util.AuthStrategy.AWS_IAM_AUTH:      handleAwsIamAuthLogin,
+				util.AuthStrategy.OIDC_AUTH:         handleOidcAuthLogin,
 			}
 
 			credential, err := authStrategies[strategy](cmd, infisicalClient)
@@ -456,6 +472,7 @@ func init() {
 	loginCmd.Flags().String("machine-identity-id", "", "machine identity id for kubernetes, azure, gcp-id-token, gcp-iam, and aws-iam auth methods")
 	loginCmd.Flags().String("service-account-token-path", "", "service account token path for kubernetes auth")
 	loginCmd.Flags().String("service-account-key-file-path", "", "service account key file path for GCP IAM auth")
+	loginCmd.Flags().String("oidc-jwt", "", "JWT for OIDC authentication")
 }
 
 func DomainOverridePrompt() (bool, error) {
@@ -616,7 +633,7 @@ func getFreshUserCredentials(email string, password string) (*api.GetLoginOneV2R
 	loginTwoResponseResult, err := api.CallLogin2V2(httpClient, api.GetLoginTwoV2Request{
 		Email:       email,
 		ClientProof: hex.EncodeToString(srpM1),
-		Password: password,
+		Password:    password,
 	})
 
 	if err != nil {
@@ -696,10 +713,62 @@ func askForMFACode() string {
 	return mfaVerifyCode
 }
 
+func askToPasteJwtToken(success chan models.UserCredentials, failure chan error) {
+	time.Sleep(time.Second * 5)
+	fmt.Println("\n\nOnce login is completed via browser, the CLI should be authenticated automatically.")
+	fmt.Println("However, if browser fails to communicate with the CLI, please paste the token from the browser below.")
+
+	fmt.Print("\n\nToken: ")
+	bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		failure <- err
+		fmt.Println("\nError reading input:", err)
+		os.Exit(1)
+	}
+
+	infisicalPastedToken := strings.TrimSpace(string(bytePassword))
+
+	userCredentials, err := decodePastedBase64Token(infisicalPastedToken)
+	if err != nil {
+		failure <- err
+		fmt.Println("Invalid user credentials provided", err)
+		os.Exit(1)
+	}
+
+	// verify JTW
+	httpClient := resty.New().
+		SetAuthToken(userCredentials.JTWToken).
+		SetHeader("Accept", "application/json")
+
+	isAuthenticated := api.CallIsAuthenticated(httpClient)
+	if !isAuthenticated {
+		fmt.Println("Invalid user credentials provided", err)
+		failure <- err
+		os.Exit(1)
+	}
+
+	success <- *userCredentials
+}
+
+func decodePastedBase64Token(token string) (*models.UserCredentials, error) {
+	data, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return nil, err
+	}
+	var loginResponse models.UserCredentials
+
+	err = json.Unmarshal(data, &loginResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &loginResponse, nil
+}
+
 // Manages the browser login flow.
 // Returns a UserCredentials object on success and an error on failure
 func browserCliLogin() (models.UserCredentials, error) {
-	SERVER_TIMEOUT := 60 * 10
+	SERVER_TIMEOUT := 10 * 60
 
 	//create listener
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -711,17 +780,12 @@ func browserCliLogin() (models.UserCredentials, error) {
 	callbackPort := listener.Addr().(*net.TCPAddr).Port
 	url := fmt.Sprintf("%s?callback_port=%d", config.INFISICAL_LOGIN_URL, callbackPort)
 
-	//open browser and login
-	err = browser.OpenURL(url)
-	if err != nil {
-		return models.UserCredentials{}, err
-	}
+	fmt.Printf("\n\nTo complete your login, open this address in your browser: %v \n", url)
 
 	//flow channels
 	success := make(chan models.UserCredentials)
 	failure := make(chan error)
 	timeout := time.After(time.Second * time.Duration(SERVER_TIMEOUT))
-	quit := make(chan bool)
 
 	//terminal state
 	oldState, err := term.GetState(int(os.Stdin.Fd()))
@@ -744,23 +808,22 @@ func browserCliLogin() (models.UserCredentials, error) {
 	log.Debug().Msgf("Callback server listening on port %d", callbackPort)
 
 	go http.Serve(listener, corsHandler)
+	go askToPasteJwtToken(success, failure)
 
 	for {
 		select {
 		case loginResponse := <-success:
 			_ = closeListener(&listener)
+			fmt.Println("Browser login successful")
 			return loginResponse, nil
 
-		case <-failure:
-			err = closeListener(&listener)
-			return models.UserCredentials{}, err
+		case err := <-failure:
+			serverErr := closeListener(&listener)
+			return models.UserCredentials{}, errors.Join(err, serverErr)
 
 		case <-timeout:
 			_ = closeListener(&listener)
 			return models.UserCredentials{}, errors.New("server timeout")
-
-		case <-quit:
-			return models.UserCredentials{}, errors.New("quitting browser login, defaulting to cli...")
 		}
 	}
 }

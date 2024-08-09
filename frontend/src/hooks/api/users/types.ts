@@ -49,6 +49,7 @@ export type OrgUser = {
   user: {
     username: string;
     email?: string;
+    isEmailVerified: boolean;
     firstName: string;
     lastName: string;
     id: string;
@@ -60,11 +61,11 @@ export type OrgUser = {
   status: "invited" | "accepted" | "verified" | "completed";
   deniedPermissions: any[];
   roleId: string;
+  isActive: boolean;
 };
 
 export type TProjectMembership = {
   id: string;
-  role: string;
   createdAt: string;
   updatedAt: string;
   projectId: string;
@@ -80,6 +81,11 @@ export type TWorkspaceUser = {
     lastName: string;
     id: string;
     publicKey: string;
+  };
+  projectId: string;
+  project: {
+    id: string;
+    name: string;
   };
   inviteEmail: string;
   organization: string;
@@ -126,12 +132,14 @@ export type AddUserToWsDTOE2EE = {
 export type AddUserToWsDTONonE2EE = {
   projectId: string;
   usernames: string[];
+  orgId: string;
 };
 
-export type UpdateOrgUserRoleDTO = {
+export type UpdateOrgMembershipDTO = {
   organizationId: string;
   membershipId: string;
-  role: string;
+  role?: string;
+  isActive?: boolean;
 };
 
 export type DeletOrgMembershipDTO = {

@@ -45,6 +45,7 @@ export enum EventType {
   CREATE_SECRETS = "create-secrets",
   UPDATE_SECRET = "update-secret",
   UPDATE_SECRETS = "update-secrets",
+  MOVE_SECRETS = "move-secrets",
   DELETE_SECRET = "delete-secret",
   DELETE_SECRETS = "delete-secrets",
   GET_WORKSPACE_KEY = "get-workspace-key",
@@ -66,11 +67,23 @@ export enum EventType {
   UPDATE_IDENTITY_UNIVERSAL_AUTH = "update-identity-universal-auth",
   GET_IDENTITY_UNIVERSAL_AUTH = "get-identity-universal-auth",
   REVOKE_IDENTITY_UNIVERSAL_AUTH = "revoke-identity-universal-auth",
+  CREATE_TOKEN_IDENTITY_TOKEN_AUTH = "create-token-identity-token-auth",
+  UPDATE_TOKEN_IDENTITY_TOKEN_AUTH = "update-token-identity-token-auth",
+  GET_TOKENS_IDENTITY_TOKEN_AUTH = "get-tokens-identity-token-auth",
+  ADD_IDENTITY_TOKEN_AUTH = "add-identity-token-auth",
+  UPDATE_IDENTITY_TOKEN_AUTH = "update-identity-token-auth",
+  GET_IDENTITY_TOKEN_AUTH = "get-identity-token-auth",
+  REVOKE_IDENTITY_TOKEN_AUTH = "revoke-identity-token-auth",
   LOGIN_IDENTITY_KUBERNETES_AUTH = "login-identity-kubernetes-auth",
   ADD_IDENTITY_KUBERNETES_AUTH = "add-identity-kubernetes-auth",
   UPDATE_IDENTITY_KUBENETES_AUTH = "update-identity-kubernetes-auth",
   GET_IDENTITY_KUBERNETES_AUTH = "get-identity-kubernetes-auth",
   REVOKE_IDENTITY_KUBERNETES_AUTH = "revoke-identity-kubernetes-auth",
+  LOGIN_IDENTITY_OIDC_AUTH = "login-identity-oidc-auth",
+  ADD_IDENTITY_OIDC_AUTH = "add-identity-oidc-auth",
+  UPDATE_IDENTITY_OIDC_AUTH = "update-identity-oidc-auth",
+  GET_IDENTITY_OIDC_AUTH = "get-identity-oidc-auth",
+  REVOKE_IDENTITY_OIDC_AUTH = "revoke-identity-oidc-auth",
   CREATE_IDENTITY_UNIVERSAL_AUTH_CLIENT_SECRET = "create-identity-universal-auth-client-secret",
   REVOKE_IDENTITY_UNIVERSAL_AUTH_CLIENT_SECRET = "revoke-identity-universal-auth-client-secret",
   GET_IDENTITY_UNIVERSAL_AUTH_CLIENT_SECRETS = "get-identity-universal-auth-client-secret",
@@ -93,6 +106,7 @@ export enum EventType {
   CREATE_ENVIRONMENT = "create-environment",
   UPDATE_ENVIRONMENT = "update-environment",
   DELETE_ENVIRONMENT = "delete-environment",
+  GET_ENVIRONMENT = "get-environment",
   ADD_WORKSPACE_MEMBER = "add-workspace-member",
   ADD_BATCH_WORKSPACE_MEMBER = "add-workspace-members",
   REMOVE_WORKSPACE_MEMBER = "remove-workspace-member",
@@ -122,10 +136,19 @@ export enum EventType {
   IMPORT_CA_CERT = "import-certificate-authority-cert",
   GET_CA_CRL = "get-certificate-authority-crl",
   ISSUE_CERT = "issue-cert",
+  SIGN_CERT = "sign-cert",
   GET_CERT = "get-cert",
   DELETE_CERT = "delete-cert",
   REVOKE_CERT = "revoke-cert",
-  GET_CERT_BODY = "get-cert-body"
+  GET_CERT_BODY = "get-cert-body",
+  CREATE_KMS = "create-kms",
+  UPDATE_KMS = "update-kms",
+  DELETE_KMS = "delete-kms",
+  GET_KMS = "get-kms",
+  UPDATE_PROJECT_KMS = "update-project-kms",
+  GET_PROJECT_KMS_BACKUP = "get-project-kms-backup",
+  LOAD_PROJECT_KMS_BACKUP = "load-project-kms-backup",
+  ORG_ADMIN_ACCESS_PROJECT = "org-admin-accessed-project"
 }
 
 interface UserActorMetadata {
@@ -228,6 +251,17 @@ interface UpdateSecretBatchEvent {
   };
 }
 
+interface MoveSecretsEvent {
+  type: EventType.MOVE_SECRETS;
+  metadata: {
+    sourceEnvironment: string;
+    sourceSecretPath: string;
+    destinationEnvironment: string;
+    destinationSecretPath: string;
+    secretIds: string[];
+  };
+}
+
 interface DeleteSecretEvent {
   type: EventType.DELETE_SECRET;
   metadata: {
@@ -304,6 +338,7 @@ interface DeleteIntegrationEvent {
     targetServiceId?: string;
     path?: string;
     region?: string;
+    shouldDeleteIntegrationSecrets?: boolean;
   };
 }
 
@@ -442,6 +477,66 @@ interface GetIdentityUniversalAuthEvent {
 
 interface DeleteIdentityUniversalAuthEvent {
   type: EventType.REVOKE_IDENTITY_UNIVERSAL_AUTH;
+  metadata: {
+    identityId: string;
+  };
+}
+
+interface CreateTokenIdentityTokenAuthEvent {
+  type: EventType.CREATE_TOKEN_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+    identityAccessTokenId: string;
+  };
+}
+
+interface UpdateTokenIdentityTokenAuthEvent {
+  type: EventType.UPDATE_TOKEN_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+    tokenId: string;
+    name?: string;
+  };
+}
+
+interface GetTokensIdentityTokenAuthEvent {
+  type: EventType.GET_TOKENS_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+  };
+}
+
+interface AddIdentityTokenAuthEvent {
+  type: EventType.ADD_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+    accessTokenTTL: number;
+    accessTokenMaxTTL: number;
+    accessTokenNumUsesLimit: number;
+    accessTokenTrustedIps: Array<TIdentityTrustedIp>;
+  };
+}
+
+interface UpdateIdentityTokenAuthEvent {
+  type: EventType.UPDATE_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+    accessTokenTTL?: number;
+    accessTokenMaxTTL?: number;
+    accessTokenNumUsesLimit?: number;
+    accessTokenTrustedIps?: Array<TIdentityTrustedIp>;
+  };
+}
+
+interface GetIdentityTokenAuthEvent {
+  type: EventType.GET_IDENTITY_TOKEN_AUTH;
+  metadata: {
+    identityId: string;
+  };
+}
+
+interface DeleteIdentityTokenAuthEvent {
+  type: EventType.REVOKE_IDENTITY_TOKEN_AUTH;
   metadata: {
     identityId: string;
   };
@@ -682,11 +777,75 @@ interface GetIdentityAzureAuthEvent {
   };
 }
 
+interface LoginIdentityOidcAuthEvent {
+  type: EventType.LOGIN_IDENTITY_OIDC_AUTH;
+  metadata: {
+    identityId: string;
+    identityOidcAuthId: string;
+    identityAccessTokenId: string;
+  };
+}
+
+interface AddIdentityOidcAuthEvent {
+  type: EventType.ADD_IDENTITY_OIDC_AUTH;
+  metadata: {
+    identityId: string;
+    oidcDiscoveryUrl: string;
+    caCert: string;
+    boundIssuer: string;
+    boundAudiences: string;
+    boundClaims: Record<string, string>;
+    boundSubject: string;
+    accessTokenTTL: number;
+    accessTokenMaxTTL: number;
+    accessTokenNumUsesLimit: number;
+    accessTokenTrustedIps: Array<TIdentityTrustedIp>;
+  };
+}
+
+interface DeleteIdentityOidcAuthEvent {
+  type: EventType.REVOKE_IDENTITY_OIDC_AUTH;
+  metadata: {
+    identityId: string;
+  };
+}
+
+interface UpdateIdentityOidcAuthEvent {
+  type: EventType.UPDATE_IDENTITY_OIDC_AUTH;
+  metadata: {
+    identityId: string;
+    oidcDiscoveryUrl?: string;
+    caCert?: string;
+    boundIssuer?: string;
+    boundAudiences?: string;
+    boundClaims?: Record<string, string>;
+    boundSubject?: string;
+    accessTokenTTL?: number;
+    accessTokenMaxTTL?: number;
+    accessTokenNumUsesLimit?: number;
+    accessTokenTrustedIps?: Array<TIdentityTrustedIp>;
+  };
+}
+
+interface GetIdentityOidcAuthEvent {
+  type: EventType.GET_IDENTITY_OIDC_AUTH;
+  metadata: {
+    identityId: string;
+  };
+}
+
 interface CreateEnvironmentEvent {
   type: EventType.CREATE_ENVIRONMENT;
   metadata: {
     name: string;
     slug: string;
+  };
+}
+
+interface GetEnvironmentEvent {
+  type: EventType.GET_ENVIRONMENT;
+  metadata: {
+    id: string;
   };
 }
 
@@ -987,6 +1146,15 @@ interface IssueCert {
   };
 }
 
+interface SignCert {
+  type: EventType.SIGN_CERT;
+  metadata: {
+    caId: string;
+    dn: string;
+    serialNumber: string;
+  };
+}
+
 interface GetCert {
   type: EventType.GET_CERT;
   metadata: {
@@ -1023,6 +1191,72 @@ interface GetCertBody {
   };
 }
 
+interface CreateKmsEvent {
+  type: EventType.CREATE_KMS;
+  metadata: {
+    kmsId: string;
+    provider: string;
+    slug: string;
+    description?: string;
+  };
+}
+
+interface DeleteKmsEvent {
+  type: EventType.DELETE_KMS;
+  metadata: {
+    kmsId: string;
+    slug: string;
+  };
+}
+
+interface UpdateKmsEvent {
+  type: EventType.UPDATE_KMS;
+  metadata: {
+    kmsId: string;
+    provider: string;
+    slug?: string;
+    description?: string;
+  };
+}
+
+interface GetKmsEvent {
+  type: EventType.GET_KMS;
+  metadata: {
+    kmsId: string;
+    slug: string;
+  };
+}
+
+interface UpdateProjectKmsEvent {
+  type: EventType.UPDATE_PROJECT_KMS;
+  metadata: {
+    secretManagerKmsKey: {
+      id: string;
+      slug: string;
+    };
+  };
+}
+
+interface GetProjectKmsBackupEvent {
+  type: EventType.GET_PROJECT_KMS_BACKUP;
+  metadata: Record<string, string>; // no metadata yet
+}
+
+interface LoadProjectKmsBackupEvent {
+  type: EventType.LOAD_PROJECT_KMS_BACKUP;
+  metadata: Record<string, string>; // no metadata yet
+}
+
+interface OrgAdminAccessProjectEvent {
+  type: EventType.ORG_ADMIN_ACCESS_PROJECT;
+  metadata: {
+    userId: string;
+    username: string;
+    email: string;
+    projectId: string;
+  }; // no metadata yet
+}
+
 export type Event =
   | GetSecretsEvent
   | GetSecretEvent
@@ -1030,6 +1264,7 @@ export type Event =
   | CreateSecretBatchEvent
   | UpdateSecretEvent
   | UpdateSecretBatchEvent
+  | MoveSecretsEvent
   | DeleteSecretEvent
   | DeleteSecretBatchEvent
   | GetWorkspaceKeyEvent
@@ -1051,6 +1286,13 @@ export type Event =
   | UpdateIdentityUniversalAuthEvent
   | DeleteIdentityUniversalAuthEvent
   | GetIdentityUniversalAuthEvent
+  | CreateTokenIdentityTokenAuthEvent
+  | UpdateTokenIdentityTokenAuthEvent
+  | GetTokensIdentityTokenAuthEvent
+  | AddIdentityTokenAuthEvent
+  | UpdateIdentityTokenAuthEvent
+  | GetIdentityTokenAuthEvent
+  | DeleteIdentityTokenAuthEvent
   | LoginIdentityKubernetesAuthEvent
   | DeleteIdentityKubernetesAuthEvent
   | AddIdentityKubernetesAuthEvent
@@ -1075,7 +1317,13 @@ export type Event =
   | DeleteIdentityAzureAuthEvent
   | UpdateIdentityAzureAuthEvent
   | GetIdentityAzureAuthEvent
+  | LoginIdentityOidcAuthEvent
+  | AddIdentityOidcAuthEvent
+  | DeleteIdentityOidcAuthEvent
+  | UpdateIdentityOidcAuthEvent
+  | GetIdentityOidcAuthEvent
   | CreateEnvironmentEvent
+  | GetEnvironmentEvent
   | UpdateEnvironmentEvent
   | DeleteEnvironmentEvent
   | AddWorkspaceMemberEvent
@@ -1107,7 +1355,16 @@ export type Event =
   | ImportCaCert
   | GetCaCrl
   | IssueCert
+  | SignCert
   | GetCert
   | DeleteCert
   | RevokeCert
-  | GetCertBody;
+  | GetCertBody
+  | CreateKmsEvent
+  | UpdateKmsEvent
+  | DeleteKmsEvent
+  | GetKmsEvent
+  | UpdateProjectKmsEvent
+  | GetProjectKmsBackupEvent
+  | LoadProjectKmsBackupEvent
+  | OrgAdminAccessProjectEvent;

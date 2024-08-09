@@ -6,10 +6,12 @@ import { CaStatus } from "../ca/enums";
 import { TCertificateAuthority } from "../ca/types";
 import { TCertificate } from "../certificates/types";
 import { TGroupMembership } from "../groups/types";
+import { identitiesKeys } from "../identities/queries";
 import { IdentityMembership } from "../identities/types";
 import { IntegrationAuth } from "../integrationAuth/types";
 import { TIntegration } from "../integrations/types";
 import { EncryptedSecret } from "../secrets/types";
+import { userKeys } from "../users/queries";
 import { TWorkspaceUser } from "../users/types";
 import {
   CreateEnvironmentDTO,
@@ -148,11 +150,15 @@ export const useGetWorkspaceSecrets = (workspaceId: string) => {
   });
 };
 
-export const useGetWorkspaceById = (workspaceId: string) => {
+export const useGetWorkspaceById = (
+  workspaceId: string,
+  dto?: { refetchInterval?: number | false }
+) => {
   return useQuery({
     queryKey: workspaceKeys.getWorkspaceById(workspaceId),
     queryFn: () => fetchWorkspaceById(workspaceId),
-    enabled: true
+    enabled: Boolean(workspaceId),
+    refetchInterval: dto?.refetchInterval
   });
 };
 
@@ -224,18 +230,20 @@ export const useGetWorkspaceIntegrations = (workspaceId: string) =>
   });
 
 export const createWorkspace = ({
-  projectName
+  projectName,
+  kmsKeyId
 }: CreateWorkspaceDTO): Promise<{ data: { project: Workspace } }> => {
-  return apiRequest.post("/api/v2/workspace", { projectName });
+  return apiRequest.post("/api/v2/workspace", { projectName, kmsKeyId });
 };
 
 export const useCreateWorkspace = () => {
   const queryClient = useQueryClient();
 
   return useMutation<{ data: { project: Workspace } }, {}, CreateWorkspaceDTO>({
-    mutationFn: async ({ projectName }) =>
+    mutationFn: async ({ projectName, kmsKeyId }) =>
       createWorkspace({
-        projectName
+        projectName,
+        kmsKeyId
       }),
     onSuccess: () => {
       queryClient.invalidateQueries(workspaceKeys.getAllUserWorkspace);
@@ -309,6 +317,7 @@ export const useDeleteWorkspace = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(workspaceKeys.getAllUserWorkspace);
+      queryClient.invalidateQueries(["org-admin-projects"]);
     }
   });
 };
@@ -384,6 +393,7 @@ export const useDeleteUserFromWorkspace = () => {
     }: {
       workspaceId: string;
       usernames: string[];
+      orgId: string;
     }) => {
       const {
         data: { deletedMembership }
@@ -392,8 +402,9 @@ export const useDeleteUserFromWorkspace = () => {
       });
       return deletedMembership;
     },
-    onSuccess: (_, { workspaceId }) => {
+    onSuccess: (_, { orgId, workspaceId }) => {
       queryClient.invalidateQueries(workspaceKeys.getWorkspaceUsers(workspaceId));
+      queryClient.invalidateQueries(userKeys.allOrgMembershipProjectMemberships(orgId));
     }
   });
 };
@@ -441,8 +452,9 @@ export const useAddIdentityToWorkspace = () => {
 
       return identityMembership;
     },
-    onSuccess: (_, { workspaceId }) => {
+    onSuccess: (_, { identityId, workspaceId }) => {
       queryClient.invalidateQueries(workspaceKeys.getWorkspaceIdentityMemberships(workspaceId));
+      queryClient.invalidateQueries(identitiesKeys.getIdentityProjectMemberships(identityId));
     }
   });
 };
@@ -462,8 +474,9 @@ export const useUpdateIdentityWorkspaceRole = () => {
 
       return identityMembership;
     },
-    onSuccess: (_, { workspaceId }) => {
+    onSuccess: (_, { identityId, workspaceId }) => {
       queryClient.invalidateQueries(workspaceKeys.getWorkspaceIdentityMemberships(workspaceId));
+      queryClient.invalidateQueries(identitiesKeys.getIdentityProjectMemberships(identityId));
     }
   });
 };
@@ -485,8 +498,9 @@ export const useDeleteIdentityFromWorkspace = () => {
       );
       return identityMembership;
     },
-    onSuccess: (_, { workspaceId }) => {
+    onSuccess: (_, { identityId, workspaceId }) => {
       queryClient.invalidateQueries(workspaceKeys.getWorkspaceIdentityMemberships(workspaceId));
+      queryClient.invalidateQueries(identitiesKeys.getIdentityProjectMemberships(identityId));
     }
   });
 };

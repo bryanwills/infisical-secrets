@@ -18,6 +18,40 @@ export const createDistinguishedName = (parts: TDNParts) => {
   return dnParts.join(", ");
 };
 
+export const parseDistinguishedName = (dn: string): TDNParts => {
+  const parts: TDNParts = {};
+  const dnParts = dn.split(/,\s*/);
+
+  for (const part of dnParts) {
+    const [key, value] = part.split("=");
+    switch (key.toUpperCase()) {
+      case "C":
+        parts.country = value;
+        break;
+      case "O":
+        parts.organization = value;
+        break;
+      case "OU":
+        parts.ou = value;
+        break;
+      case "ST":
+        parts.province = value;
+        break;
+      case "CN":
+        parts.commonName = value;
+        break;
+      case "L":
+        parts.locality = value;
+        break;
+      default:
+        // Ignore unrecognized keys
+        break;
+    }
+  }
+
+  return parts;
+};
+
 export const keyAlgorithmToAlgCfg = (keyAlgorithm: CertKeyAlgorithm) => {
   switch (keyAlgorithm) {
     case CertKeyAlgorithm.RSA_4096:
@@ -75,8 +109,10 @@ export const getCaCredentials = async ({
     kmsService
   });
 
-  const decryptedPrivateKey = await kmsService.decrypt({
-    kmsId: keyId,
+  const kmsDecryptor = await kmsService.decryptWithKmsKey({
+    kmsId: keyId
+  });
+  const decryptedPrivateKey = await kmsDecryptor({
     cipherTextBlob: caSecret.encryptedPrivateKey
   });
 
@@ -123,15 +159,17 @@ export const getCaCertChain = async ({
     kmsService
   });
 
-  const decryptedCaCert = await kmsService.decrypt({
-    kmsId: keyId,
+  const kmsDecryptor = await kmsService.decryptWithKmsKey({
+    kmsId: keyId
+  });
+
+  const decryptedCaCert = await kmsDecryptor({
     cipherTextBlob: caCert.encryptedCertificate
   });
 
   const caCertObj = new x509.X509Certificate(decryptedCaCert);
 
-  const decryptedChain = await kmsService.decrypt({
-    kmsId: keyId,
+  const decryptedChain = await kmsDecryptor({
     cipherTextBlob: caCert.encryptedCertificateChain
   });
 
@@ -168,8 +206,11 @@ export const rebuildCaCrl = async ({
     kmsService
   });
 
-  const privateKey = await kmsService.decrypt({
-    kmsId: keyId,
+  const kmsDecryptor = await kmsService.decryptWithKmsKey({
+    kmsId: keyId
+  });
+
+  const privateKey = await kmsDecryptor({
     cipherTextBlob: caSecret.encryptedPrivateKey
   });
 
@@ -200,8 +241,10 @@ export const rebuildCaCrl = async ({
     signingKey: sk
   });
 
-  const { cipherTextBlob: encryptedCrl } = await kmsService.encrypt({
-    kmsId: keyId,
+  const kmsEncryptor = await kmsService.encryptWithKmsKey({
+    kmsId: keyId
+  });
+  const { cipherTextBlob: encryptedCrl } = await kmsEncryptor({
     plainText: Buffer.from(new Uint8Array(crl.rawData))
   });
 
